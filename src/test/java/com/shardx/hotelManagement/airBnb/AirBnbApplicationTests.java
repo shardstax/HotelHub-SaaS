@@ -8,6 +8,7 @@ class AirBnbApplicationTests {
 
 	@Test
 	void contextLoads() {
+        // Test
 	}
 
 }
