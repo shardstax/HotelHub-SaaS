@@ -2,6 +2,7 @@ package com.shardx.hotelManagement.airBnb.controller;
 
 import com.shardx.hotelManagement.airBnb.dto.HotelDto;
 import com.shardx.hotelManagement.airBnb.dto.HotelInfoDto;
+import com.shardx.hotelManagement.airBnb.dto.HotelPriceDto;
 import com.shardx.hotelManagement.airBnb.dto.HotelSearchRequest;
 import com.shardx.hotelManagement.airBnb.service.HotelService;
 import com.shardx.hotelManagement.airBnb.service.InventoryService;
@@ -19,9 +20,9 @@ public class HotelBrowseController {
     private final HotelService hotelService;
 
     @GetMapping("/search")
-    public ResponseEntity<Page<HotelDto>> searchHotels(@RequestBody HotelSearchRequest hotelSearchRequest) {
+    public ResponseEntity<Page<HotelPriceDto>> searchHotels(@RequestBody HotelSearchRequest hotelSearchRequest) {
 
-        Page<HotelDto> page = inventoryService.searchHotels(hotelSearchRequest);
+        var page = inventoryService.searchHotels(hotelSearchRequest);
         return ResponseEntity.ok(page);
     }
 
