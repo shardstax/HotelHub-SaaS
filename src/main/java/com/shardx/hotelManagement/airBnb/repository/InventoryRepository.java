@@ -1,5 +1,6 @@
 package com.shardx.hotelManagement.airBnb.repository;
 
+import com.shardx.hotelManagement.airBnb.dto.RoomPriceDto;
 import com.shardx.hotelManagement.airBnb.entity.Hotel;
 import com.shardx.hotelManagement.airBnb.entity.Inventory;
 import com.shardx.hotelManagement.airBnb.entity.Room;
@@ -11,15 +12,13 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 
-@Repository
 public interface InventoryRepository extends JpaRepository<Inventory, Long> {
+
     void deleteByRoom(Room room);
 
     @Query("""
@@ -39,7 +38,7 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
             @Param("roomsCount") Integer roomsCount,
             @Param("dateCount") Long dateCount,
             Pageable pageable
-    );
+            );
 
     @Query("""
             SELECT i
@@ -74,6 +73,21 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     @Modifying
     @Query("""
                 UPDATE Inventory i
+                SET i.reservedCount = i.reservedCount + :numberOfRooms
+                WHERE i.room.id = :roomId
+                  AND i.date BETWEEN :startDate AND :endDate
+                  AND (i.totalCount - i.bookedCount - i.reservedCount) >= :numberOfRooms
+                  AND i.closed = false
+            """)
+    void initBooking(@Param("roomId") Long roomId,
+                     @Param("startDate") LocalDate startDate,
+                     @Param("endDate") LocalDate endDate,
+                     @Param("numberOfRooms") int numberOfRooms);
+
+
+    @Modifying
+    @Query("""
+                UPDATE Inventory i
                 SET i.reservedCount = i.reservedCount - :numberOfRooms,
                     i.bookedCount = i.bookedCount + :numberOfRooms
                 WHERE i.room.id = :roomId
@@ -101,21 +115,6 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
                        @Param("endDate") LocalDate endDate,
                        @Param("numberOfRooms") int numberOfRooms);
 
-
-    @Modifying
-    @Query("""
-                UPDATE Inventory i
-                SET i.reservedCount = i.reservedCount + :numberOfRooms
-                WHERE i.room.id = :roomId
-                  AND i.date BETWEEN :startDate AND :endDate
-                  AND (i.totalCount - i.bookedCount - i.reservedCount) >= :numberOfRooms
-                  AND i.closed = false
-            """)
-    void initBooking(@Param("roomId") Long roomId,
-                     @Param("startDate") LocalDate startDate,
-                     @Param("endDate") LocalDate endDate,
-                     @Param("numberOfRooms") int numberOfRooms);
-
     List<Inventory> findByHotelAndDateBetween(Hotel hotel, LocalDate startDate, LocalDate endDate);
 
     List<Inventory> findByRoomOrderByDate(Room room);
@@ -128,8 +127,8 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
             """)
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Inventory> getInventoryAndLockBeforeUpdate(@Param("roomId") Long roomId,
-                                                    @Param("startDate") LocalDate startDate,
-                                                    @Param("endDate") LocalDate endDate);
+                         @Param("startDate") LocalDate startDate,
+                         @Param("endDate") LocalDate endDate);
 
     @Modifying
     @Query("""
@@ -144,4 +143,28 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
                          @Param("endDate") LocalDate endDate,
                          @Param("closed") boolean closed,
                          @Param("surgeFactor")BigDecimal surgeFactor);
+
+    @Query("""
+       SELECT new com.shardx.hotelManagement.airBnb.dto.RoomPriceDto(
+            i.room,
+            CASE
+                WHEN COUNT(i) = :dateCount THEN AVG(i.price)
+                ELSE NULL
+            END
+        )
+       FROM Inventory i
+       WHERE i.hotel.id = :hotelId
+             AND i.date BETWEEN :startDate AND :endDate
+             AND (i.totalCount - i.bookedCount) >= :roomsCount
+             AND i.closed = false
+       GROUP BY i.room
+       """)
+    List<RoomPriceDto> findRoomAveragePrice(
+            @Param("hotelId") Long hotelId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("roomsCount") Long roomsCount,
+            @Param("dateCount") Long dateCount
+    );
+
 }

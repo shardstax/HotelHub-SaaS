@@ -2,6 +2,7 @@ package com.shardx.hotelManagement.airBnb.strategy;
 
 import com.shardx.hotelManagement.airBnb.entity.Inventory;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
@@ -12,6 +13,7 @@ public class SurgePricingStrategy implements PricingStrategy{
 
     @Override
     public BigDecimal calculatePrice(Inventory inventory) {
-        return wrapped.calculatePrice(inventory).multiply(inventory.getSurgeFactor());
+        BigDecimal price = wrapped.calculatePrice(inventory);
+        return price.multiply(inventory.getSurgeFactor());
     }
 }

@@ -18,7 +18,7 @@ import java.math.BigDecimal;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class CheckoutServiceImpl implements CheckoutService {
+public class CheckoutServiceImpl implements CheckoutService{
 
     private final BookingRepository bookingRepository;
 
@@ -28,12 +28,12 @@ public class CheckoutServiceImpl implements CheckoutService {
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         try {
-            Customer customer =  Customer.create(
-                    CustomerCreateParams.builder()
-                            .setName(user.getName())
-                            .setEmail(user.getEmail())
-                            .build()
-            );
+            CustomerCreateParams customerParams = CustomerCreateParams.builder()
+                    .setName(user.getName())
+                    .setEmail(user.getEmail())
+                    .build();
+            Customer customer = Customer.create(customerParams);
+
             SessionCreateParams sessionParams = SessionCreateParams.builder()
                     .setMode(SessionCreateParams.Mode.PAYMENT)
                     .setBillingAddressCollection(SessionCreateParams.BillingAddressCollection.REQUIRED)
@@ -49,7 +49,7 @@ public class CheckoutServiceImpl implements CheckoutService {
                                                     .setUnitAmount(booking.getAmount().multiply(BigDecimal.valueOf(100)).longValue())
                                                     .setProductData(
                                                             SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                                                    .setName(booking.getHotel().getName() + " : "+ booking.getRoom().getType())
+                                                                    .setName(booking.getHotel().getName() +" : "+ booking.getRoom().getType())
                                                                     .setDescription("Booking ID: "+booking.getId())
                                                                     .build()
                                                     )
@@ -67,10 +67,10 @@ public class CheckoutServiceImpl implements CheckoutService {
             log.info("Session created successfully for booking with ID: {}", booking.getId());
             return session.getUrl();
 
-
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
+
 
     }
 }

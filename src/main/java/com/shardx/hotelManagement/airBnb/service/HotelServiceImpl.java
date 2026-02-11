@@ -1,22 +1,22 @@
 package com.shardx.hotelManagement.airBnb.service;
 
-import com.shardx.hotelManagement.airBnb.dto.HotelDto;
-import com.shardx.hotelManagement.airBnb.dto.HotelInfoDto;
-import com.shardx.hotelManagement.airBnb.dto.RoomDto;
+import com.shardx.hotelManagement.airBnb.dto.*;
 import com.shardx.hotelManagement.airBnb.entity.Hotel;
 import com.shardx.hotelManagement.airBnb.entity.Room;
 import com.shardx.hotelManagement.airBnb.entity.User;
 import com.shardx.hotelManagement.airBnb.exception.ResourceNotFoundException;
 import com.shardx.hotelManagement.airBnb.exception.UnAuthorisedException;
 import com.shardx.hotelManagement.airBnb.repository.HotelRepository;
+import com.shardx.hotelManagement.airBnb.repository.InventoryRepository;
 import com.shardx.hotelManagement.airBnb.repository.RoomRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,6 +31,7 @@ public class HotelServiceImpl implements HotelService{
     private final ModelMapper modelMapper;
     private final InventoryService inventoryService;
     private final RoomRepository roomRepository;
+    private final InventoryRepository inventoryRepository;
 
     @Override
     public HotelDto createNewHotel(HotelDto hotelDto) {
@@ -52,17 +53,16 @@ public class HotelServiceImpl implements HotelService{
         Hotel hotel = hotelRepository
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+id));
-
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if(!user.equals(hotel.getOwner())){
-            throw  new UnAuthorisedException("This user does not own this hotel with id: "+id);
+
+        if(!user.equals(hotel.getOwner())) {
+            throw new UnAuthorisedException("This user does not own this hotel with id: "+id);
         }
 
         return modelMapper.map(hotel, HotelDto.class);
     }
 
     @Override
-    @Transactional
     public HotelDto updateHotelById(Long id, HotelDto hotelDto) {
         log.info("Updating the hotel with ID: {}", id);
         Hotel hotel = hotelRepository
@@ -70,8 +70,8 @@ public class HotelServiceImpl implements HotelService{
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+id));
 
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if(!user.equals(hotel.getOwner())){
-            throw  new UnAuthorisedException("This user does not own this hotel with id: "+id);
+        if(!user.equals(hotel.getOwner())) {
+            throw new UnAuthorisedException("This user does not own this hotel with id: "+id);
         }
 
         modelMapper.map(hotelDto, hotel);
@@ -88,15 +88,15 @@ public class HotelServiceImpl implements HotelService{
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+id));
 
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if(!user.equals(hotel.getOwner())){
-            throw  new UnAuthorisedException("This user does not own this hotel with id: "+id);
+        if(!user.equals(hotel.getOwner())) {
+            throw new UnAuthorisedException("This user does not own this hotel with id: "+id);
         }
+
 
         for(Room room: hotel.getRooms()) {
             inventoryService.deleteAllInventories(room);
             roomRepository.deleteById(room.getId());
         }
-
         hotelRepository.deleteById(id);
     }
 
@@ -109,28 +109,39 @@ public class HotelServiceImpl implements HotelService{
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+hotelId));
 
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if(!user.equals(hotel.getOwner())){
-            throw  new UnAuthorisedException("This user does not own this hotel with id: "+ hotelId);
+
+        if(!user.equals(hotel.getOwner())) {
+            throw new UnAuthorisedException("This user does not own this hotel with id: "+hotelId);
         }
 
         hotel.setActive(true);
 
-        // assuming only do it once
         for(Room room: hotel.getRooms()) {
             inventoryService.initializeRoomForAYear(room);
         }
     }
 
+
     @Override
-    public HotelInfoDto getHotelInfoById(Long hotelId) {
+    public HotelInfoDto getHotelInfoById(Long hotelId, HotelInfoRequestDto hotelInfoRequestDto) {
         Hotel hotel = hotelRepository
                 .findById(hotelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+hotelId));
 
-        List<RoomDto> rooms = hotel.getRooms()
-                .stream()
-                .map((element) -> modelMapper.map(element, RoomDto.class))
-                .toList();
+        long daysCount = ChronoUnit.DAYS.between(hotelInfoRequestDto.getStartDate(), hotelInfoRequestDto.getEndDate())+1;
+
+        List<RoomPriceDto> roomPriceDtoList = inventoryRepository.findRoomAveragePrice(hotelId,
+                hotelInfoRequestDto.getStartDate(), hotelInfoRequestDto.getEndDate(),
+                hotelInfoRequestDto.getRoomsCount(), daysCount);
+
+        List<RoomPriceResponseDto> rooms = roomPriceDtoList.stream()
+                .map(roomPriceDto -> {
+                    RoomPriceResponseDto roomPriceResponseDto = modelMapper.map(roomPriceDto.getRoom(),
+                            RoomPriceResponseDto.class);
+                    roomPriceResponseDto.setPrice(roomPriceDto.getPrice());
+                    return roomPriceResponseDto;
+                })
+                .collect(Collectors.toList());
 
         return new HotelInfoDto(modelMapper.map(hotel, HotelDto.class), rooms);
     }
