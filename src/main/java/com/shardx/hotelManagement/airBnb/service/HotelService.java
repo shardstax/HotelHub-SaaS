@@ -4,6 +4,8 @@ import com.shardx.hotelManagement.airBnb.dto.HotelDto;
 import com.shardx.hotelManagement.airBnb.dto.HotelInfoDto;
 import com.shardx.hotelManagement.airBnb.entity.Hotel;
 
+import java.util.List;
+
 public interface HotelService {
     HotelDto createNewHotel(HotelDto hotelDto);
 
@@ -16,4 +18,6 @@ public interface HotelService {
     void activateHotel(Long hotelId);
 
     HotelInfoDto getHotelInfoById(Long hotelId);
+
+    List<HotelDto> getAllHotels();
 }
